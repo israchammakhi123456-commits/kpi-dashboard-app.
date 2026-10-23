@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--bg:#0f1117;--bg2:#161b27;--bg3:#1e2536;--border:rgba(255,255,255,.08);--text:#f0f0f0;--muted:#8b90a0;
+--accent:#3b82f6;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--r:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+button,input,select,textarea{font:inherit;color:inherit}
+.sidebar{width:210px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.logo{padding:1.25rem 1rem;border-bottom:1px solid var(--border);font-weight:600;font-size:15px}
+.logo small{display:block;color:var(--muted);font-weight:400;font-size:11px;margin-top:2px}
+.nav{display:flex;align-items:center;gap:9px;padding:10px 1rem;font-size:13px;color:var(--muted);cursor:pointer;border-left:2px solid transparent;background:none;border-top:0;border-right:0;border-bottom:0;text-align:left;width:100%}
+.nav:hover{background:var(--bg3);color:var(--text)}
+.nav.active{color:var(--accent);border-left-color:var(--accent);background:rgba(59,130,246,.1)}
+.badge{margin-left:auto;background:rgba(239,68,68,.2);color:var(--bad);border-radius:4px;font-size:10px;padding:1px 6px;font-weight:600}
+.side-foot{margin-top:auto;padding:1rem;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:.85rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border)}
+.topbar h1{font-size:16px;font-weight:600}
+.content{flex:1;overflow-y:auto;padding:1.25rem 1.5rem}
+.page{display:none}.page.active{display:block}
+.btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 13px;font-size:12px;cursor:pointer}
+.btn:hover{border-color:rgba(255,255,255,.25)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:4px 9px;font-size:11px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-bottom:1.25rem}
+.kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;position:relative;overflow:hidden;cursor:pointer}
+.kpi-card:hover{border-color:rgba(255,255,255,.2)}.kpi-card.sel{border-color:var(--accent)}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-bottom:5px}
+.kpi-val{font-size:28px;font-weight:700;line-height:1;margin-bottom:6px}
+.kpi-meta{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.pill{padding:1px 7px;border-radius:4px;font-size:11px;font-weight:600}
+.s-good{background:rgba(34,197,94,.15);color:var(--good)}.s-warn{background:rgba(245,158,11,.15);color:var(--warn)}
+.s-bad{background:rgba(239,68,68,.15);color:var(--bad)}.s-none{background:var(--bg3);color:var(--muted)}
+.bar{position:absolute;left:0;right:0;bottom:0;height:3px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1rem}
+.row2{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+@media(max-width:900px){.row2{grid-template-columns:1fr}.sidebar{width:64px}.logo small,.nav span.t,.side-foot span{display:none}.nav{justify-content:center}.badge{display:none}}
+.card h2{font-size:13px;font-weight:600;margin-bottom:2px}.card .sub{font-size:11px;color:var(--muted);margin-bottom:.8rem}
+.chart-wrap{position:relative;height:300px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px;border-bottom:1px solid var(--border)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.actions{display:flex;gap:6px;justify-content:flex-end}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.toolbar .grow{flex:1}
+select,input,textarea{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;width:100%;font-size:13px}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+.toolbar select{width:auto;min-width:200px}
+.alert{display:flex;gap:12px;align-items:center;padding:11px 1rem;border-bottom:1px solid var(--border);font-size:13px}
+.alert:last-child{border-bottom:0}
+.empty{color:var(--muted);text-align:center;padding:2rem;font-size:13px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:10;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.4rem;width:100%;max-width:440px;max-height:92vh;overflow:auto}
+.modal h3{font-size:15px;margin-bottom:1rem}
+.f{margin-bottom:.85rem}.f label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=color]{padding:2px;height:36px}
+.err{color:var(--bad);font-size:12px;min-height:16px;margin-bottom:.5rem}
+.modal .foot{display:flex;justify-content:flex-end;gap:8px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border);padding:10px 16px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+.lock{font-size:11px;color:var(--warn)}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo">KPI Dashboard<small>Live data · full CRUD</small></div>
+  <button class="nav active" data-page="dashboard"><span>📊</span><span class="t">Dashboard</span></button>
+  <button class="nav" data-page="kpis"><span>🎯</span><span class="t">Manage KPIs</span></button>
+  <button class="nav" data-page="entries"><span>📝</span><span class="t">Data entries</span></button>
+  <button class="nav" data-page="alerts"><span>🔔</span><span class="t">Alerts</span><span class="badge" id="alertBadge" style="display:none"></span></button>
+  <div class="side-foot"><span id="authBox"></span></div>
+</aside>
+
+<div class="main">
+  <div class="topbar"><h1 id="pageTitle">Dashboard</h1><div class="toolbar" style="margin:0" id="topActions"></div></div>
+  <div class="content">
+
+    <section class="page active" id="page-dashboard">
+      <div class="kpi-grid" id="cards"></div>
+      <div class="row2">
+        <div class="card"><h2 id="histTitle">History &amp; forecast</h2><div class="sub">Select a KPI card. Dashed line = 6-month linear forecast with confidence band.</div><div class="chart-wrap"><canvas id="histChart"></canvas></div></div>
+        <div class="card"><h2>Progress vs target</h2><div class="sub">Latest value as % of target</div><div class="chart-wrap"><canvas id="pctChart"></canvas></div></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-kpis">
+      <div class="toolbar"><div class="grow"></div><button class="btn primary" onclick="openKpi()">+ New KPI</button></div>
+      <div class="card" style="padding:.3rem .5rem"><table><thead><tr><th>KPI</th><th>Latest</th><th>Target</th><th>Status</th><th>Entries</th><th></th></tr></thead><tbody id="kpiRows"></tbody></table></div>
+    </section>
+
+    <section class="page" id="page-entries">
+      <div class="toolbar">
+        <select id="entryKpi"></select><div class="grow"></div>
+        <button class="btn primary" onclick="openEntry()">+ Add entry</button>
+      </div>
+      <div class="card" style="padding:.3rem .5rem"><table><thead><tr><th>Date</th><th>Value</th><th>Note</th><th></th></tr></thead><tbody id="entryRows"></tbody></table></div>
+      <div class="toolbar">
+        <a class="btn" href="/api/export">⬇ Export CSV</a>
+        <label class="btn" style="cursor:pointer">⬆ Import CSV<input type="file" id="csvFile" accept=".csv" hidden></label>
+        <button class="btn danger" onclick="resetSample()">Reset to sample data</button>
+        <span class="sub" style="margin:0;color:var(--muted);font-size:11px">CSV columns: kpi,date,value,note (kpi = existing KPI name)</span>
+      </div>
+    </section>
+
+    <section class="page" id="page-alerts">
+      <div class="card" style="padding:.3rem 0" id="alertList"></div>
+    </section>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(v,u)=>v==null?'—':(+v.toFixed(2))+(u==='$'?'':(u?(u.length>1?' ':'')+u:''));
+const val=(v,u)=>v==null?'—':(u==='$'?'$'+(+v.toFixed(2)):fmt(v,u));
+const STATUS={good:'On target',warn:'Near target',bad:'Off target',none:'No data'};
+let S={kpis:[],sel:null,auth:{auth_required:false,logged_in:true},entryKpi:null,charts:{}};
+
+async function api(url,opt={}){
+  if(opt.body&&!(opt.body instanceof FormData)){opt.headers={'Content-Type':'application/json'};opt.body=JSON.stringify(opt.body)}
+  const r=await fetch(url,opt);const d=await r.json().catch(()=>({}));
+  if(!r.ok){if(r.status===401)openLogin();throw new Error(d.error||'Request failed')}
+  return d;
+}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+const canEdit=()=>!S.auth.auth_required||S.auth.logged_in;
+
+// ---------- navigation ----------
+const TITLES={dashboard:'Dashboard',kpis:'Manage KPIs',entries:'Data entries',alerts:'Alerts'};
+$$('.nav').forEach(b=>b.onclick=()=>show(b.dataset.page));
+function show(p){
+  $$('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===p));
+  $$('.page').forEach(x=>x.classList.toggle('active',x.id==='page-'+p));
+  $('#pageTitle').textContent=TITLES[p];
+  if(p==='entries')loadEntries();
+  if(p==='alerts')loadAlerts();
+  if(p==='dashboard')drawHist();
+}
+
+// ---------- modal ----------
+function modal(html){$('#modal').innerHTML=html;$('#modalBg').classList.add('open')}
+function closeModal(){$('#modalBg').classList.remove('open')}
+$('#modalBg').onclick=e=>{if(e.target.id==='modalBg')closeModal()};
+function formData(form){return Object.fromEntries(new FormData(form))}
+
+// ---------- auth ----------
+function renderAuth(){
+  const a=S.auth;
+  $('#authBox').innerHTML=!a.auth_required?'<span class="lock">Open editing</span>':
+    a.logged_in?'<a href="#" onclick="logout();return false" style="color:var(--muted)">🔓 Log out</a>':'<a href="#" onclick="openLogin();return false" style="color:var(--warn)">🔒 Log in to edit</a>';
+  $$('[data-edit]').forEach(e=>e.style.display=canEdit()?'':'none');
+}
+function openLogin(){modal(`<h3>Log in to edit</h3><form id="lf"><div class="f"><label>Password</label><input type="password" name="password" autofocus></div><div class="err" id="ferr"></div><div class="foot"><button type="button" class="btn" onclick="closeModal()">Cancel</button><button class="btn primary">Log in</button></div></form>`);
+  $('#lf').onsubmit=async e=>{e.preventDefault();try{await api('/api/login',{method:'POST',body:formData(e.target)});S.auth.logged_in=true;closeModal();renderAuth();renderAll();toast('Logged in')}catch(x){$('#ferr').textContent=x.message}}}
+async function logout(){await api('/api/logout',{method:'POST'});S.auth.logged_in=false;renderAuth();renderAll()}
+
+// ---------- KPIs ----------
+async function loadKpis(){S.kpis=await api('/api/kpis');if(!S.kpis.find(k=>k.id===S.sel))S.sel=S.kpis[0]?.id??null;if(!S.kpis.find(k=>k.id===S.entryKpi))S.entryKpi=S.kpis[0]?.id??null;renderAll()}
+function renderAll(){renderCards();renderKpiRows();renderEntryKpiSelect();drawPct();drawHist();loadAlertBadge();renderAuth()}
+function renderCards(){
+  $('#cards').innerHTML=S.kpis.length?S.kpis.map(k=>{
+    const arrow=k.delta==null?'':(k.delta>=0?'▲ ':'▼ ')+Math.abs(+k.delta.toFixed(2));
+    return `<div class="kpi-card ${k.id===S.sel?'sel':''}" onclick="S.sel=${k.id};renderCards();drawHist()">
+      <div class="kpi-lbl">${esc(k.name)}</div><div class="kpi-val">${esc(val(k.value,k.unit))}</div>
+      <div class="kpi-meta"><span class="pill s-${k.status}">${STATUS[k.status]}</span><span>target ${k.direction==='lower'?'&lt;':'&gt;'} ${esc(val(k.target,k.unit))}</span><span>${arrow}</span></div>
+      <div class="bar" style="background:${esc(k.color)}"></div></div>`}).join(''):'<div class="empty" style="grid-column:1/-1">No KPIs yet. Go to “Manage KPIs” to create one.</div>';
+}
+function renderKpiRows(){
+  $('#kpiRows').innerHTML=S.kpis.length?S.kpis.map(k=>`<tr><td><span class="dot" style="background:${esc(k.color)}"></span><b>${esc(k.name)}</b><div style="font-size:11px;color:var(--muted)">${esc(k.description)}</div></td>
+  <td>${esc(val(k.value,k.unit))}</td><td>${k.direction==='lower'?'≤':'≥'} ${esc(val(k.target,k.unit))}</td><td><span class="pill s-${k.status}">${STATUS[k.status]}</span></td><td>${k.entry_count}</td>
+  <td><div class="actions" data-edit><button class="btn sm" onclick="openKpi(${k.id})">Edit</button><button class="btn sm danger" onclick="delKpi(${k.id})">Delete</button></div></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No KPIs yet.</td></tr>';
+}
+function openKpi(id){
+  if(!canEdit())return openLogin();
+  const k=S.kpis.find(x=>x.id===id)||{name:'',unit:'%',target:'',direction:'higher',color:'#3b82f6',description:''};
+  modal(`<h3>${id?'Edit':'New'} KPI</h3><form id="kf">
+  <div class="f"><label>Name</label><input name="name" required value="${esc(k.name)}"></div>
+  <div class="f2"><div class="f"><label>Target</label><input name="target" type="number" step="any" required value="${esc(k.target)}"></div>
+  <div class="f"><label>Unit (%, $, days…)</label><input name="unit" value="${esc(k.unit)}"></div></div>
+  <div class="f2"><div class="f"><label>Better when</label><select name="direction"><option value="higher" ${k.direction==='higher'?'selected':''}>Higher is better</option><option value="lower" ${k.direction==='lower'?'selected':''}>Lower is better</option></select></div>
+  <div class="f"><label>Color</label><input name="color" type="color" value="${esc(k.color)}"></div></div>
+  <div class="f"><label>Description</label><textarea name="description" rows="2">${esc(k.description)}</textarea></div>
+  <div class="err" id="ferr"></div><div class="foot"><button type="button" class="btn" onclick="closeModal()">Cancel</button><button class="btn primary">Save</button></div></form>`);
+  $('#kf').onsubmit=async e=>{e.preventDefault();try{
+    await api(id?`/api/kpis/${id}`:'/api/kpis',{method:id?'PUT':'POST',body:formData(e.target)});closeModal();toast('KPI saved');loadKpis()}catch(x){$('#ferr').textContent=x.message}};
+}
+async function delKpi(id){const k=S.kpis.find(x=>x.id===id);if(!confirm(`Delete “${k.name}” and all its ${k.entry_count} entries?`))return;
+  try{await api(`/api/kpis/${id}`,{method:'DELETE'});toast('KPI deleted');loadKpis()}catch(x){toast(x.message)}}
+
+// ---------- entries ----------
+function renderEntryKpiSelect(){
+  const s=$('#entryKpi');s.innerHTML=S.kpis.map(k=>`<option value="${k.id}" ${k.id===S.entryKpi?'selected':''}>${esc(k.name)}</option>`).join('');
+}
+$('#entryKpi').onchange=e=>{S.entryKpi=+e.target.value;loadEntries()};
+let ENT=[];
+async function loadEntries(){
+  if(!S.entryKpi){$('#entryRows').innerHTML='<tr><td colspan="4" class="empty">Create a KPI first.</td></tr>';return}
+  ENT=await api(`/api/kpis/${S.entryKpi}/entries`);const k=S.kpis.find(x=>x.id===S.entryKpi);
+  $('#entryRows').innerHTML=ENT.length?[...ENT].reverse().map(e=>`<tr><td>${esc(e.date)}</td><td><b>${esc(val(e.value,k.unit))}</b></td><td style="color:var(--muted)">${esc(e.note)}</td>
+  <td><div class="actions" data-edit><button class="btn sm" onclick="openEntry(${e.id})">Edit</button><button class="btn sm danger" onclick="delEntry(${e.id})">Delete</button></div></td></tr>`).join(''):'<tr><td colspan="4" class="empty">No entries yet — add the first measurement.</td></tr>';
+  renderAuth();
+}
+function openEntry(id){
+  if(!canEdit())return openLogin();if(!S.entryKpi)return toast('Create a KPI first');
+  const e=ENT.find(x=>x.id===id)||{date:new Date().toISOString().slice(0,10),value:'',note:''};
+  modal(`<h3>${id?'Edit':'Add'} entry</h3><form id="ef"><div class="f2"><div class="f"><label>Date</label><input type="date" name="date" required value="${esc(e.date)}"></div>
+  <div class="f"><label>Value</label><input type="number" step="any" name="value" required value="${esc(e.value)}"></div></div>
+  <div class="f"><label>Note (optional)</label><input name="note" value="${esc(e.note)}"></div><div class="err" id="ferr"></div>
+  <div class="foot"><button type="button" class="btn" onclick="closeModal()">Cancel</button><button class="btn primary">Save</button></div></form>`);
+  $('#ef').onsubmit=async ev=>{ev.preventDefault();try{
+    await api(id?`/api/entries/${id}`:`/api/kpis/${S.entryKpi}/entries`,{method:id?'PUT':'POST',body:formData(ev.target)});closeModal();toast('Entry saved');loadEntries();loadKpis()}catch(x){$('#ferr').textContent=x.message}};
+}
+async function delEntry(id){if(!confirm('Delete this entry?'))return;try{await api(`/api/entries/${id}`,{method:'DELETE'});toast('Entry deleted');loadEntries();loadKpis()}catch(x){toast(x.message)}}
+$('#csvFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const fd=new FormData();fd.append('file',f);
+  try{const r=await api('/api/import',{method:'POST',body:fd});toast(`Imported ${r.added}, skipped ${r.skipped}`);loadEntries();loadKpis()}catch(x){toast(x.message)}e.target.value=''};
+async function resetSample(){if(!canEdit())return openLogin();if(!confirm('This deletes ALL KPIs and entries and loads the sample data. Continue?'))return;
+  try{await api('/api/reset-sample',{method:'POST'});toast('Sample data restored');loadKpis();loadEntries()}catch(x){toast(x.message)}}
+
+// ---------- alerts ----------
+const ICON={critical:'🔴',warning:'🟠',info:'🔵'};
+async function loadAlerts(){const a=await api('/api/alerts');
+  $('#alertList').innerHTML=a.length?a.map(x=>`<div class="alert"><span>${ICON[x.level]}</span><span style="flex:1">${esc(x.msg)}</span><span class="pill s-${x.level==='critical'?'bad':x.level==='warning'?'warn':'none'}">${x.level}</span></div>`).join(''):'<div class="empty">All clear — no alerts.</div>'}
+async function loadAlertBadge(){try{const a=await api('/api/alerts');const n=a.filter(x=>x.level!=='info').length;const b=$('#alertBadge');b.style.display=n?'':'none';b.textContent=n}catch(e){}}
+
+// ---------- charts ----------
+Chart.defaults.color='#8b90a0';Chart.defaults.borderColor='rgba(255,255,255,.07)';
+function mk(id,cfg){if(S.charts[id])S.charts[id].destroy();S.charts[id]=new Chart($('#'+id),cfg)}
+async function drawHist(){
+  if(!S.sel||!$('#page-dashboard').classList.contains('active')){return}
+  const d=await api(`/api/kpis/${S.sel}/history`);const k=d.kpi;
+  $('#histTitle').textContent=`${k.name} — history & forecast`;
+  const labels=[...d.history.map(h=>h.date),...d.forecast.map(f=>f.date)];const n=d.history.length;
+  const pad=a=>[...a,...Array(d.forecast.length).fill(null)];
+  const hv=pad(d.history.map(h=>h.value));
+  const fv=[...Array(Math.max(n-1,0)).fill(null),...(n?[d.history[n-1].value]:[]),...d.forecast.map(f=>f.value)];
+  const up=[...Array(n).fill(null),...d.forecast.map(f=>f.upper)],lo=[...Array(n).fill(null),...d.forecast.map(f=>f.lower)];
+  const tgt=labels.map(()=>k.target);
+  mk('histChart',{type:'line',data:{labels,datasets:[
+    {label:'Actual',data:hv,borderColor:k.color,backgroundColor:k.color,tension:.3,pointRadius:3},
+    {label:'Forecast',data:fv,borderColor:k.color,borderDash:[6,4],tension:.3,pointRadius:0},
+    {label:'Upper',data:up,borderColor:'transparent',backgroundColor:k.color+'22',fill:'+1',pointRadius:0,tension:.3},
+    {label:'Lower',data:lo,borderColor:'transparent',pointRadius:0,tension:.3},
+    {label:'Target',data:tgt,borderColor:'#f59e0b',borderDash:[2,4],pointRadius:0,borderWidth:1.5}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},spanGaps:false,
+      plugins:{legend:{labels:{filter:i=>!['Upper','Lower'].includes(i.text),boxWidth:12}}},scales:{x:{ticks:{maxTicksLimit:8}}}}});
+}
+function drawPct(){
+  const ks=S.kpis.filter(k=>k.value!=null);
+  const pct=ks.map(k=>k.direction==='lower'?(k.target/k.value)*100:(k.value/k.target)*100);
+  mk('pctChart',{type:'bar',data:{labels:ks.map(k=>k.name),datasets:[{data:pct.map(p=>+p.toFixed(1)),backgroundColor:ks.map(k=>k.color)}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{suggestedMin:0,suggestedMax:120,ticks:{callback:v=>v+'%'}}}}});
+}
+
+(async()=>{try{S.auth=await api('/api/session')}catch(e){}await loadKpis()})();
+</script>
+</body>
+</html>
